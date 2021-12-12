@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_barcode_scanner/flutter_barcode_scanner.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 
 void main() {
   runApp(const MyApp());
@@ -16,7 +17,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'QR & Barcode Reader',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.red,
       ),
       home: const MyHomePage(title: 'QR & Barcode Reader'),
     );
@@ -32,7 +33,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   String result = "https://www.example.com/";
-  String COLOR_CODE = "#87CEFA";
+  String COLOR_CODE = "#F44336";
   String CANCEL_BUTTON_TEXT = "Cancel";
   bool isShowFlashIcon = false;
   ScanMode scanMode = ScanMode.QR;
@@ -72,6 +73,10 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  _share() async {
+    Share.share(result);
+  }
+
   @override
   Widget build(BuildContext context) {
     // If canceled
@@ -79,6 +84,7 @@ class _MyHomePageState extends State<MyHomePage> {
       result = "https://www.example.com/";
     }
     return Scaffold(
+        backgroundColor: Color(0xFF293133),
         appBar: AppBar(
           title: Text(widget.title),
         ),
@@ -87,7 +93,10 @@ class _MyHomePageState extends State<MyHomePage> {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(result),
+            Text(result,
+                maxLines: 16,
+                style: const TextStyle(fontSize: 18, color: Color(0xFFFFFFFF)),
+                textAlign: TextAlign.center),
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -100,21 +109,28 @@ class _MyHomePageState extends State<MyHomePage> {
                   },
                 ),
                 OutlinedButton.icon(
+                  label: Text('Share'),
+                  icon: Icon(Icons.share_rounded),
+                  onPressed: () {
+                    _share();
+                  },
+                ),
+                OutlinedButton.icon(
                   label: Text('Copy'),
-                  icon: Icon(Icons.content_copy),
+                  icon: Icon(Icons.content_copy_rounded),
                   onPressed: () {
                     _copyToClipboard();
                   },
-                )
+                ),
               ],
             ),
             OutlinedButton.icon(
               label: Text('Start Scan'),
-              icon: Icon(Icons.camera_alt_outlined),
+              icon: Icon(Icons.camera_alt_rounded),
               onPressed: () {
                 _scanQR();
               },
-            ),
+            )
           ],
         )));
   }

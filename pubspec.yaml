@@ -15,7 +15,7 @@ dependencies:
     sdk: flutter
   flutter_barcode_scanner: ^2.0.0
   url_launcher: ^6.0.17
-
+  share_plus: ^3.0.4
 
 dev_dependencies:
   flutter_test:
@@ -26,7 +26,7 @@ dev_dependencies:
 
 
 flutter_icons:
-  android: "launcher_icon"
+  android: true
   ios: true
   image_path: "assets/icon/icon.png"
 
