@@ -3,8 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_barcode_scanner/flutter_barcode_scanner.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
-void main() {
+import 'history.dart';
+
+void main() async {
+  await Hive.initFlutter(); //
+  await Hive.openBox<String>('history');
+
   runApp(const MyApp());
 }
 
@@ -16,6 +22,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'QR & Barcode Reader',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.red,
       ),
@@ -32,11 +39,12 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  String result = "https://www.example.com/";
+  String text = "-1";
   String COLOR_CODE = "#F44336";
   String CANCEL_BUTTON_TEXT = "Cancel";
   bool isShowFlashIcon = false;
   ScanMode scanMode = ScanMode.QR;
+  Box<String> box = Hive.box<String>('history');
 
   @override
   void initState() {
@@ -49,7 +57,7 @@ class _MyHomePageState extends State<MyHomePage> {
       String scanResult = await FlutterBarcodeScanner.scanBarcode(
           COLOR_CODE, CANCEL_BUTTON_TEXT, isShowFlashIcon, scanMode);
       setState(() {
-        result = scanResult;
+        text = scanResult;
       });
     } on PlatformException catch (e) {
       print(e);
@@ -57,15 +65,15 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   _launchURL() async {
-    if (await canLaunch(result)) {
-      await launch(result);
+    if (await canLaunch(text)) {
+      await launch(text);
     } else {
-      throw 'Could not launch $result';
+      throw 'Could not launch $text';
     }
   }
 
   _copyToClipboard() async {
-    await Clipboard.setData(ClipboardData(text: result));
+    await Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Copied to clipboard!'),
@@ -74,17 +82,30 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   _share() async {
-    Share.share(result);
+    Share.share(text);
+  }
+
+  void _navigateAndDisplaySelection(BuildContext context) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => HistoryScreen()),
+    );
+
+    setState(() {
+      text = result;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     // If canceled
-    if (result == "-1") {
-      result = "https://www.example.com/";
+    if (text == "-1") {
+      text = "Placeholder for a scanned code";
+    } else {
+      Hive.box<String>('history').put(DateTime.now().toString(), text);
     }
     return Scaffold(
-        backgroundColor: Color(0xFF293133),
+        backgroundColor: const Color(0xFF293133),
         appBar: AppBar(
           title: Text(widget.title),
         ),
@@ -93,7 +114,7 @@ class _MyHomePageState extends State<MyHomePage> {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(result,
+            Text(text,
                 maxLines: 16,
                 style: const TextStyle(fontSize: 18, color: Color(0xFFFFFFFF)),
                 textAlign: TextAlign.center),
@@ -102,35 +123,47 @@ class _MyHomePageState extends State<MyHomePage> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 OutlinedButton.icon(
-                  label: Text('Open'),
-                  icon: Icon(Icons.link_rounded),
+                  label: const Text('Copy'),
+                  icon: const Icon(Icons.content_copy_rounded),
                   onPressed: () {
-                    _launchURL();
+                    _copyToClipboard();
                   },
                 ),
                 OutlinedButton.icon(
-                  label: Text('Share'),
-                  icon: Icon(Icons.share_rounded),
+                  label: const Text('Share'),
+                  icon: const Icon(Icons.share_rounded),
                   onPressed: () {
                     _share();
                   },
                 ),
                 OutlinedButton.icon(
-                  label: Text('Copy'),
-                  icon: Icon(Icons.content_copy_rounded),
+                  label: const Text('Open'),
+                  icon: const Icon(Icons.link_rounded),
                   onPressed: () {
-                    _copyToClipboard();
+                    _launchURL();
                   },
                 ),
               ],
             ),
-            OutlinedButton.icon(
-              label: Text('Start Scan'),
-              icon: Icon(Icons.camera_alt_rounded),
-              onPressed: () {
-                _scanQR();
-              },
-            )
+            Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  OutlinedButton.icon(
+                    label: const Text('History'),
+                    icon: const Icon(Icons.history),
+                    onPressed: () {
+                      _navigateAndDisplaySelection(context);
+                    },
+                  ),
+                  OutlinedButton.icon(
+                    label: const Text('Start Scan'),
+                    icon: const Icon(Icons.camera_alt_rounded),
+                    onPressed: () {
+                      _scanQR();
+                    },
+                  )
+                ]),
           ],
         )));
   }
