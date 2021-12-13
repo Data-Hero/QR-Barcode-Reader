@@ -1,4 +1,4 @@
-# qr_barcode_reader
+# QR & Barcode Reader
 
 QR & Barcode Reader App.
 
