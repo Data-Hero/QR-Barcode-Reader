@@ -5,11 +5,10 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-import 'history.dart';
-
 void main() async {
   await Hive.initFlutter(); //
-  await Hive.openBox<String>('history');
+  await Hive.openBox<List<String>>('history');
+  await Hive.openBox<bool>('settings');
 
   runApp(const MyApp());
 }
@@ -26,14 +25,17 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.red,
       ),
-      home: const MyHomePage(title: 'QR & Barcode Reader'),
+      home: const MyHomePage(title: 'QR & Barcode Reader', showCamera: true),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({Key? key, required this.title}) : super(key: key);
+  const MyHomePage({Key? key, required this.title, required this.showCamera})
+      : super(key: key);
   final String title;
+  final bool showCamera;
+
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
@@ -44,12 +46,27 @@ class _MyHomePageState extends State<MyHomePage> {
   String CANCEL_BUTTON_TEXT = "Cancel";
   bool isShowFlashIcon = false;
   ScanMode scanMode = ScanMode.QR;
-  Box<String> box = Hive.box<String>('history');
+
+  Box<List<String>> box = Hive.box<List<String>>('history');
+  List<String> entries = [];
+
+  Box<bool> settings = Hive.box<bool>('settings');
+  bool leftSideFloatButton = false;
 
   @override
   void initState() {
     super.initState();
-    _scanQR();
+    if (widget.showCamera) {
+      _scanQR();
+    } else {
+      text = widget.title;
+    }
+
+    if (!settings.toMap().keys.contains("leftSideFloatButton")) {
+      settings.put("leftSideFloatButton", false);
+    } else {
+      leftSideFloatButton = settings.get("leftSideFloatButton")!;
+    }
   }
 
   Future _scanQR() async {
@@ -58,18 +75,18 @@ class _MyHomePageState extends State<MyHomePage> {
           COLOR_CODE, CANCEL_BUTTON_TEXT, isShowFlashIcon, scanMode);
       setState(() {
         text = scanResult;
+        if (text != "-1") {
+          entries.insert(0, text);
+        }
       });
     } on PlatformException catch (e) {
-      print(e);
+      // nothing
     }
   }
 
   _launchURL() async {
-    if (await canLaunch(text)) {
-      await launch(text);
-    } else {
-      throw 'Could not launch $text';
-    }
+    var url = Uri.parse(text);
+    await launchUrl(url);
   }
 
   _copyToClipboard() async {
@@ -85,86 +102,189 @@ class _MyHomePageState extends State<MyHomePage> {
     Share.share(text);
   }
 
-  void _navigateAndDisplaySelection(BuildContext context) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => HistoryScreen()),
-    );
+  _deleteAll() async {
+    entries = [];
+    box.put(0, entries);
+    text = "Nothing was scanned";
+    setState(() {});
+  }
 
-    setState(() {
-      text = result;
-    });
+  Future<void> _dialogBuilder(BuildContext context, Color buttonColor) {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return SimpleDialog(
+            title: const Text("Select an action:"),
+            backgroundColor: const Color(0xFFd6cecc),
+            children: <Widget>[
+              SimpleDialogOption(
+                onPressed: () {
+                  _copyToClipboard();
+                },
+                child: const Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Icon(Icons.content_copy_rounded),
+                    SizedBox(width: 10),
+                    Text('Copy')
+                  ],
+                ),
+              ),
+              SimpleDialogOption(
+                onPressed: () {
+                  _share();
+                },
+                child: const Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Icon(Icons.share_rounded),
+                    SizedBox(width: 10),
+                    Text('Share')
+                  ],
+                ),
+              ),
+              SimpleDialogOption(
+                onPressed: () {
+                  _launchURL();
+                },
+                child: const Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Icon(Icons.link_rounded),
+                    SizedBox(width: 10),
+                    Text('Open')
+                  ],
+                ),
+              ),
+            ]);
+      },
+    );
+  }
+
+  Future<void> _confirmDialogBuilder() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // user must tap button!
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirmation'),
+          content: const SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text('This action will delete all previous scans.'),
+                Text('Would you like to approve of this?'),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Approve'),
+              onPressed: () {
+                _deleteAll();
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     // If canceled
     if (text == "-1") {
-      text = "Placeholder for a scanned code";
-    } else {
-      Hive.box<String>('history').put(DateTime.now().toString(), text);
+      text = "Nothing was scanned";
     }
+    box.put(0, entries);
+
+    const buttonColor = Color(0xFF293133);
+    const gap = 15.0;
+    entries = box.get(0)!;
+    var padding = MediaQuery.of(context).viewPadding;
+    var height =
+        MediaQuery.of(context).size.height - padding.top - padding.bottom;
     return Scaffold(
-        backgroundColor: const Color(0xFF293133),
+        backgroundColor: const Color(0xFF333d40),
         appBar: AppBar(
-          title: Text(widget.title),
-        ),
-        body: Center(
-            child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(text,
-                maxLines: 16,
-                style: const TextStyle(fontSize: 18, color: Color(0xFFFFFFFF)),
-                textAlign: TextAlign.center),
-            Row(
+          title: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                OutlinedButton.icon(
-                  label: const Text('Copy'),
-                  icon: const Icon(Icons.content_copy_rounded),
-                  onPressed: () {
-                    _copyToClipboard();
-                  },
-                ),
-                OutlinedButton.icon(
-                  label: const Text('Share'),
-                  icon: const Icon(Icons.share_rounded),
-                  onPressed: () {
-                    _share();
-                  },
-                ),
-                OutlinedButton.icon(
-                  label: const Text('Open'),
-                  icon: const Icon(Icons.link_rounded),
-                  onPressed: () {
-                    _launchURL();
-                  },
-                ),
-              ],
+                IconButton(
+                    onPressed: () {
+                      _confirmDialogBuilder();
+                    },
+                    icon: const Icon(Icons.delete_rounded)),
+                Text(text),
+                Switch(
+                    value: leftSideFloatButton,
+                    activeColor: const Color(0xFF293133),
+                    onChanged: (bool value) {
+                      settings.put("leftSideFloatButton", !leftSideFloatButton);
+                      leftSideFloatButton = !leftSideFloatButton;
+                      setState(() {});
+                    })
+              ]),
+        ),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Container(
+              constraints: BoxConstraints(maxHeight: 0.71 * height),
+              child: ListView.builder(
+                  scrollDirection: Axis.vertical,
+                  shrinkWrap: true,
+                  itemCount: entries.length,
+                  itemBuilder: (BuildContext context, int index) {
+                    return ListTile(
+                        trailing: TextButton.icon(
+                          icon: const Icon(Icons.delete_forever_rounded),
+                          label: const Text(''),
+                          onPressed: () {
+                            entries.removeAt(index);
+                            box.put(0, entries);
+                            setState(() {});
+                          },
+                        ),
+                        title: TextButton(
+                            onPressed: () {
+                              text = entries[index];
+                              _dialogBuilder(context, buttonColor);
+                            },
+                            child: Align(
+                                alignment: Alignment.topLeft,
+                                child: Text("$index:  ${entries[index]}"))));
+                  }),
             ),
-            Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  OutlinedButton.icon(
-                    label: const Text('History'),
-                    icon: const Icon(Icons.history),
-                    onPressed: () {
-                      _navigateAndDisplaySelection(context);
-                    },
-                  ),
-                  OutlinedButton.icon(
-                    label: const Text('Start Scan'),
-                    icon: const Icon(Icons.camera_alt_rounded),
-                    onPressed: () {
-                      _scanQR();
-                    },
-                  )
-                ]),
+            const SizedBox(height: gap),
           ],
-        )));
+        ),
+        floatingActionButton: Row(
+            mainAxisAlignment: leftSideFloatButton
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
+            children: [
+              const SizedBox(width: 30),
+              SizedBox(
+                  height: 100,
+                  width: 100,
+                  child: FittedBox(
+                    child: FloatingActionButton(
+                      onPressed: () {
+                        _scanQR();
+                      },
+                      backgroundColor: Colors.redAccent,
+                      child: const Icon(Icons.camera_alt_rounded),
+                    ),
+                  ))
+            ]));
   }
 }

@@ -43,9 +43,10 @@ android {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId "de.riesenberg.qr_barcode_reader"
         minSdkVersion 20
-        targetSdkVersion 24
-        versionCode 1
-        versionName "1.0"
+        targetSdkVersion flutter.targetSdkVersion
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
+        multiDexEnabled true
     }
 
     signingConfigs {
