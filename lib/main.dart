@@ -47,10 +47,10 @@ class _MyHomePageState extends State<MyHomePage> {
   bool isShowFlashIcon = false;
   ScanMode scanMode = ScanMode.QR;
 
-  Box<List<String>> box = Hive.box<List<String>>('history');
+  late Box historyBox;
   List<String> entries = [];
 
-  Box<bool> settings = Hive.box<bool>('settings');
+  late Box settingsBox;
   bool leftSideFloatButton = false;
 
   @override
@@ -62,10 +62,13 @@ class _MyHomePageState extends State<MyHomePage> {
       text = widget.title;
     }
 
-    if (!settings.toMap().keys.contains("leftSideFloatButton")) {
-      settings.put("leftSideFloatButton", false);
+    historyBox =  Hive.box<List<String>>('history');
+    settingsBox = Hive.box<bool>('settings');
+    entries = historyBox.get(0);
+    if (!settingsBox.toMap().keys.contains("leftSideFloatButton")) {
+      settingsBox.put("leftSideFloatButton", false);
     } else {
-      leftSideFloatButton = settings.get("leftSideFloatButton")!;
+      leftSideFloatButton = settingsBox.get("leftSideFloatButton")!;
     }
   }
 
@@ -104,7 +107,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   _deleteAll() async {
     entries = [];
-    box.put(0, entries);
+    historyBox.put(0, entries);
     text = "Nothing was scanned";
     setState(() {});
   }
@@ -202,11 +205,11 @@ class _MyHomePageState extends State<MyHomePage> {
     if (text == "-1") {
       text = "Nothing was scanned";
     }
-    box.put(0, entries);
+    historyBox.put(0, entries);
 
     const buttonColor = Color(0xFF293133);
     const gap = 15.0;
-    entries = box.get(0)!;
+    entries = historyBox.get(0)!;
     var padding = MediaQuery.of(context).viewPadding;
     var height =
         MediaQuery.of(context).size.height - padding.top - padding.bottom;
@@ -227,7 +230,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     value: leftSideFloatButton,
                     activeColor: const Color(0xFF293133),
                     onChanged: (bool value) {
-                      settings.put("leftSideFloatButton", !leftSideFloatButton);
+                      settingsBox.put("leftSideFloatButton", !leftSideFloatButton);
                       leftSideFloatButton = !leftSideFloatButton;
                       setState(() {});
                     })
@@ -250,7 +253,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           label: const Text(''),
                           onPressed: () {
                             entries.removeAt(index);
-                            box.put(0, entries);
+                            historyBox.put(0, entries);
                             setState(() {});
                           },
                         ),
